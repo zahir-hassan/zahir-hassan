@@ -1,0 +1,107 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+import joblib
+import cv2
+from PIL import Image, ImageTk
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
+
+# Fonction pour charger les données du fichier Excel
+def charger_donnees():
+    try:
+        file_path = filedialog.askopenfilenamedf = pd.read_excel(r"c:\users\zahir1\desktop\SMARTSYFTY\DATA3.xlsx")
+        df = pd.read_excel(file_path)
+        return df
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Erreur de chargement des données : {e}")
+        return None
+
+# Fonction d'entraînement du modèle de prédiction
+def entrainer_modele(df):
+    try:
+        # Traitement des données (ajuster selon votre structure de données)
+        X = df.drop(columns=["Recommandation Préventive"])  # Exemple de colonne cible
+        y = df["Recommandation Préventive"]
+
+        for col in X.select_dtypes(include='object').columns:
+            le = LabelEncoder()
+            X[col] = le.fit_transform(X[col].astype(str))
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model = RandomForestClassifier()
+        model.fit(X_train, y_train)
+
+        joblib.dump(model, "modele_risque.pkl")
+        messagebox.showinfo("Succès", "Modèle entraîné et sauvegardé avec succès.")
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Erreur d'entraînement du modèle : {e}")
+
+# Fonction de prédiction des risques
+def predire():
+    try:
+        model = joblib.load("modele_risque.pkl")
+        ref_danger = entree_ref_danger.get()
+        risque_potentiel = entree_risque_potentiel.get()
+        criticite_probable = entree_criticite_probable.get()
+
+        data = pd.DataFrame([[ref_danger, risque_potentiel,criticite_probable]],
+                            columns=["Référence Danger", "Risque Potentiel","Criticité Probable"])
+        
+        for col in data.select_dtypes(include='object').columns:
+            le = LabelEncoder()
+            data[col] = le.fit_transform(data[col].astype(str))
+
+        prediction = model.predict(data)[0]
+        messagebox.showinfo("Résultat", f"Recommandation Préventive : {prediction}")
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Erreur lors de la prédiction : {e}")
+
+# Fonction pour charger et traiter des images
+def charger_image():
+    file_path = filedialog.askopenfilename()
+    if not file_path:
+        return
+
+    try:
+        img = cv2.imread(file_path)
+        img = cv2.resize(img, (200, 200))
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Affichage dans l'interface
+        img_pil = Image.fromarray(img_gray)
+        img_tk = ImageTk.PhotoImage(img_pil)
+        label_image.config(image=img_tk)
+        label_image.image = img_tk
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Erreur lors du chargement de l'image : {e}")
+
+# Création de l'interface utilisateur
+fenetre = tk.Tk()
+fenetre.title("Prédiction des Risques et Recommandations")
+
+tk.Label(fenetre, text="Référence Danger").grid(row=0, column=0)
+entree_ref_danger = tk.Entry(fenetre)
+entree_ref_danger.grid(row=0, column=1)
+
+tk.Label(fenetre, text="Risque Potentiel").grid(row=1, column=0)
+entree_risque_potentiel = tk.Entry(fenetre)
+entree_risque_potentiel.grid(row=1, column=1)
+
+tk.Label(fenetre, text="Criticité Probable").grid(row=2, column=0)
+entree_criticite_probable = tk.Entry(fenetre)
+entree_criticite_probable.grid(row=2, column=1)
+
+tk.Button(fenetre, text="Charger les données", command=lambda: entrainer_modele(charger_donnees())).grid(row=3, column=0, columnspan=2)
+tk.Button(fenetre, text="Prédire", command=predire).grid(row=4, column=0, columnspan=2)
+tk.Button(fenetre, text="Charger Image", command=charger_image).grid(row=5, column=0, columnspan=2)
+
+label_image = tk.Label(fenetre)
+label_image.grid(row=6, column=0, columnspan=2)
+
+fenetre.mainloop()
